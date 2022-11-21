@@ -21,16 +21,25 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.example.inventory.data.Item
 import com.example.inventory.databinding.FragmentItemDetailBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 /**
- * Berfungsi untuk menampilkan detail item yang dipilih
+ *  Berfungsi untuk menampilkan detail item yang dipilih
  */
 class ItemDetailFragment : Fragment() {
     private val navigationArgs: ItemDetailFragmentArgs by navArgs()
+    lateinit var item: Item
+
+    private val viewModel: InventoryViewModel by activityViewModels {
+        InventoryViewModelFactory(
+            (activity?.application as InventoryApplication).database.itemDao()
+        )
+    }
 
     private var _binding: FragmentItemDetailBinding? = null
     private val binding get() = _binding!!
@@ -45,7 +54,32 @@ class ItemDetailFragment : Fragment() {
     }
 
     /**
-     * bwefungai menampilkan dialog peringatan saat akan menghapus data
+     * Mengikat tampilan dengan data item yang diteruskan.
+     */
+    private fun bind(item: Item) {
+        binding.apply {
+            itemName.text = item.itemName
+            itemCount.text = item.quantityInStock.toString()
+            sellItem.isEnabled = viewModel.isStockAvailable(item)
+            sellItem.setOnClickListener { viewModel.sellItem(item) }
+            deleteItem.setOnClickListener { showConfirmationDialog() }
+            editItem.setOnClickListener { editItem() }
+        }
+    }
+
+    /**
+     * mengarahkan ke layar Edit item.
+     */
+    private fun editItem() {
+        val action = ItemDetailFragmentDirections.actionItemDetailFragmentToAddItemFragment(
+            getString(R.string.edit_fragment_title),
+            item.id
+        )
+        this.findNavController().navigate(action)
+    }
+
+    /**
+     * Menampilkan dialog peringatan untuk mendapatkan konfirmasi pengguna sebelum menghapus item.
      */
     private fun showConfirmationDialog() {
         MaterialAlertDialogBuilder(requireContext())
@@ -60,14 +94,27 @@ class ItemDetailFragment : Fragment() {
     }
 
     /**
-     * untuk menghupus item ini dan mengembalikan ke halaman utama
+     * Menghapus item saat ini dan menavigasi ke fragmen daftar.
      */
     private fun deleteItem() {
+        viewModel.deleteItem(item)
         findNavController().navigateUp()
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        val id = navigationArgs.itemId
+        // Ambil detail item menggunakan itemId.
+        // Lampirkan pengamat pada data (alih-alih polling untuk perubahan) dan hanya perbarui
+        // UI saat data benar-benar berubah.
+        viewModel.retrieveItem(id).observe(this.viewLifecycleOwner) { selectedItem ->
+            item = selectedItem
+            bind(item)
+        }
+    }
+
     /**
-     * untuk memanggil fragment selnjutnya sebelum fragmen dihancurkan.
+     * Dipanggil saat fragmen dihancurkan.
      */
     override fun onDestroyView() {
         super.onDestroyView()

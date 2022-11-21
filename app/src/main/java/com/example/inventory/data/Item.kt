@@ -15,6 +15,7 @@
  */
 package com.example.inventory.data
 
+import android.icu.text.NumberFormat
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -35,3 +36,8 @@ data class Item(
     @ColumnInfo(name = "description")
     val itemdescription: String,
 )
+/**
+ * Mengembalikan harga yang diteruskan dalam format mata uang.
+ */
+fun Item.getFormattedPrice(): String =
+    NumberFormat.getCurrencyInstance().format(itemPrice)
